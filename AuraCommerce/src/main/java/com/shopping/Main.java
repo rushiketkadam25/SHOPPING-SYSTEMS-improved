@@ -204,6 +204,13 @@ extends JFrame {
         this.statusPill.setBackground(new Color(241, 245, 249));
         this.statusPill.setForeground(UIUtils.TEXT_DARK);
         this.statusPill.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(203, 213, 225), 1, true), BorderFactory.createEmptyBorder(6, 12, 6, 12)));
+        JButton themeBtn = UIUtils.createButton(UIUtils.isDarkMode() ? "\u2600\ufe0f Light" : "\ud83c\udf19 Dark", new Color(241, 245, 249), UIUtils.TEXT_DARK);
+        themeBtn.setToolTipText("Toggle Dark / Light Theme");
+        themeBtn.addActionListener(actionEvent -> {
+            UIUtils.toggleTheme(this);
+            themeBtn.setText(UIUtils.isDarkMode() ? "\u2600\ufe0f Light" : "\ud83c\udf19 Dark");
+            ToastNotification.show(this, "Theme Switched", "Active theme: " + (UIUtils.isDarkMode() ? "Dark Mode \ud83c\udf19" : "Light Mode \u2600\ufe0f"), ToastNotification.Type.INFO);
+        });
         JButton jButton = UIUtils.createButton("\u2699\ufe0f DB Config", new Color(241, 245, 249), UIUtils.TEXT_DARK);
         jButton.addActionListener(actionEvent -> {
             ConnectionDialog connectionDialog = new ConnectionDialog(this);
@@ -213,6 +220,7 @@ extends JFrame {
         JButton jButton2 = new JButton("\ud83d\udd04 Refresh");
         jButton2.addActionListener(actionEvent -> this.refreshAll());
         jPanel3.add(this.statusPill);
+        jPanel3.add(themeBtn);
         jPanel3.add(jButton);
         jPanel3.add(jButton2);
         jPanel.add((Component)jPanel3, "East");

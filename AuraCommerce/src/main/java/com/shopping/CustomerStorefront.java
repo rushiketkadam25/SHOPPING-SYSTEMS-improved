@@ -1,10 +1,5 @@
-/*
- * Decompiled with CFR 0.152.
- */
 package com.shopping;
 
-import com.shopping.DBConnection;
-import com.shopping.UIUtils;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
@@ -13,10 +8,11 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
-import java.awt.Insets;
+import java.awt.Window;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Vector;
 import javax.swing.BorderFactory;
@@ -38,10 +34,12 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.table.DefaultTableModel;
 
-public class CustomerStorefront
-extends JPanel {
-    private int activeCustomerId;
-    private String activeCustomerName;
+public class CustomerStorefront extends JPanel {
+    private final int activeCustomerId;
+    private final String activeCustomerName;
+    private JTabbedPane mainTabs;
+
+    // Catalog Fields
     private JTable catalogTable;
     private DefaultTableModel catalogModel;
     private JTextField searchField;
@@ -54,12 +52,10 @@ extends JPanel {
     private JComboBox<String> paymentMethodBox;
     private JComboBox<String> carrierBox;
     private JButton placeOrderBtn;
-    private JTable myOrdersTable;
-    private DefaultTableModel myOrdersModel;
-    private JTable reviewsTable;
-    private DefaultTableModel reviewsModel;
+    private JButton addToCartBtn;
+    private JButton buyNowBtn;
 
-    // Enhanced Checkout Fields
+    // Quick Checkout Fields
     private JLabel timerLabel;
     private Timer checkoutTimer;
     private int remainingSeconds = 300;
@@ -71,6 +67,32 @@ extends JPanel {
     private JPasswordField cardCvvField;
     private JComboBox<String> bankSelectBox;
 
+    // Multi-Item Shopping Cart Fields
+    private JTable cartTable;
+    private DefaultTableModel cartModel;
+    private JLabel cartSubtotalLabel;
+    private JLabel cartDiscountLabel;
+    private JLabel cartTaxLabel;
+    private JLabel cartGrandTotalLabel;
+    private JTextField cartCouponField;
+    private JLabel cartCouponStatusLabel;
+    private JComboBox<String> cartCarrierBox;
+    private JComboBox<String> cartPaymentMethodBox;
+    private CardLayout cartPaymentCardLayout;
+    private JPanel cartPaymentDetailsPanel;
+    private JTextField cartUpiField;
+    private JTextField cartCardNumberField;
+    private JTextField cartCardExpiryField;
+    private JPasswordField cartCardCvvField;
+    private JComboBox<String> cartBankSelectBox;
+    private JButton cartCheckoutBtn;
+
+    // Orders & Reviews Fields
+    private JTable myOrdersTable;
+    private DefaultTableModel myOrdersModel;
+    private JTable reviewsTable;
+    private DefaultTableModel reviewsModel;
+
     public CustomerStorefront() {
         this.activeCustomerId = UserSession.getAssociatedId() > 0 ? UserSession.getAssociatedId() : 1;
         this.activeCustomerName = UserSession.getDisplayName() != null ? UserSession.getDisplayName() : "Customer";
@@ -78,16 +100,19 @@ extends JPanel {
         this.setLayout(new BorderLayout(14, 14));
         this.setBackground(UIUtils.BG_CANVAS);
         this.setBorder(BorderFactory.createEmptyBorder(14, 16, 14, 16));
-        JPanel jPanel = UIUtils.createCard("");
-        JPanel jPanel2 = new JPanel(new FlowLayout(0, 12, 4));
-        jPanel2.setOpaque(false);
-        JLabel jLabel = new JLabel("\ud83d\udc64 Logged in as:");
-        jLabel.setFont(new Font("Segoe UI", 1, 13));
-        jLabel.setForeground(UIUtils.TEXT_DARK);
-        jPanel2.add(jLabel);
-        
+
+        // Top Customer Identity Bar
+        JPanel topCard = UIUtils.createCard("");
+        JPanel identityPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 4));
+        identityPanel.setOpaque(false);
+
+        JLabel userIconLabel = new JLabel("\ud83d\udc64 Logged in as:");
+        userIconLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        userIconLabel.setForeground(UIUtils.TEXT_DARK);
+        identityPanel.add(userIconLabel);
+
         JLabel userBadge = new JLabel("  " + this.activeCustomerName + " (Account #" + this.activeCustomerId + ")  ");
-        userBadge.setFont(new Font("Segoe UI", 1, 13));
+        userBadge.setFont(new Font("Segoe UI", Font.BOLD, 13));
         userBadge.setOpaque(true);
         userBadge.setBackground(new Color(224, 231, 255));
         userBadge.setForeground(UIUtils.PRIMARY_DARK);
@@ -95,175 +120,170 @@ extends JPanel {
             BorderFactory.createLineBorder(new Color(199, 210, 254), 1, true),
             BorderFactory.createEmptyBorder(4, 12, 4, 12)
         ));
-        jPanel2.add(userBadge);
+        identityPanel.add(userBadge);
 
-        JButton jButton = UIUtils.createButton("\ud83d\udd04 Refresh Store", new Color(241, 245, 249), UIUtils.TEXT_DARK);
-        jButton.addActionListener(actionEvent -> this.refreshAllData());
-        jPanel2.add(jButton);
-        jPanel.add((Component)jPanel2, "Center");
-        this.add((Component)jPanel, "North");
-        JTabbedPane jTabbedPane = new JTabbedPane();
-        jTabbedPane.setFont(new Font("Segoe UI", 1, 13));
-        jTabbedPane.addTab("  \ud83d\udecd\ufe0f  Product Storefront & Quick Checkout  ", this.createStorefrontTab());
-        jTabbedPane.addTab("  \ud83d\udce6  My Orders & Live Tracking  ", this.createMyOrdersTab());
-        jTabbedPane.addTab("  \u270d\ufe0f  My Reviews & Ratings  ", this.createReviewsTab());
-        this.add((Component)jTabbedPane, "Center");
+        JButton refreshStoreBtn = UIUtils.createButton("\ud83d\udd04 Refresh Store", new Color(241, 245, 249), UIUtils.TEXT_DARK);
+        refreshStoreBtn.addActionListener(e -> this.refreshAllData());
+        identityPanel.add(refreshStoreBtn);
+
+        topCard.add(identityPanel, BorderLayout.CENTER);
+        this.add(topCard, BorderLayout.NORTH);
+
+        // Main Tabbed Navigation
+        this.mainTabs = new JTabbedPane();
+        this.mainTabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        this.mainTabs.addTab("  \ud83d\udecd\ufe0f  Product Catalog  ", this.createStorefrontTab());
+        this.mainTabs.addTab("  \ud83d\uded2  Shopping Cart (0)  ", this.createCartTab());
+        this.mainTabs.addTab("  \ud83d\udce6  My Orders & Live Tracking  ", this.createMyOrdersTab());
+        this.mainTabs.addTab("  \u270d\ufe0f  My Reviews & Ratings  ", this.createReviewsTab());
+        this.add(this.mainTabs, BorderLayout.CENTER);
+
+        // Register ShoppingCart listener for live badges & dynamic totals
+        ShoppingCart.getInstance().addChangeListener(() -> {
+            int count = ShoppingCart.getInstance().getTotalQuantity();
+            this.mainTabs.setTitleAt(1, "  \ud83d\uded2  Shopping Cart (" + count + ")  ");
+            this.refreshCartView();
+        });
+
         SwingUtilities.invokeLater(this::refreshAllData);
     }
 
     private JPanel createStorefrontTab() {
-        JPanel jPanel = new JPanel(new BorderLayout(16, 16));
-        jPanel.setOpaque(false);
-        JPanel jPanel2 = UIUtils.createCard("\ud83d\udecd\ufe0f Available Products");
-        jPanel2.setLayout(new BorderLayout(10, 10));
-        JPanel jPanel3 = new JPanel(new FlowLayout(0, 8, 4));
-        jPanel3.setOpaque(false);
-        jPanel3.add(new JLabel("Search:"));
-        this.searchField = new JTextField(10);
-        jPanel3.add(this.searchField);
-        jPanel3.add(new JLabel("Category:"));
-        this.categoryCombo = new JComboBox<String>(new String[]{"All Categories"});
-        jPanel3.add(this.categoryCombo);
-        JButton jButton = UIUtils.createButton("Filter", UIUtils.PRIMARY, Color.WHITE);
-        JButton jButton2 = new JButton("Reset");
-        jButton.addActionListener(actionEvent -> this.loadCatalog());
-        jButton2.addActionListener(actionEvent -> {
+        JPanel container = new JPanel(new BorderLayout(16, 16));
+        container.setOpaque(false);
+
+        // Catalog Card
+        JPanel catalogCard = UIUtils.createCard("\ud83d\udecd\ufe0f Master Product Catalog");
+        catalogCard.setLayout(new BorderLayout(10, 10));
+
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        filterPanel.setOpaque(false);
+        filterPanel.add(new JLabel("Search:"));
+        this.searchField = new JTextField(12);
+        filterPanel.add(this.searchField);
+        filterPanel.add(new JLabel("Category:"));
+        this.categoryCombo = new JComboBox<>(new String[]{"All Categories"});
+        filterPanel.add(this.categoryCombo);
+
+        JButton filterBtn = UIUtils.createButton("Filter", UIUtils.PRIMARY, Color.WHITE);
+        JButton resetBtn = new JButton("Reset");
+        filterBtn.addActionListener(e -> this.loadCatalog());
+        resetBtn.addActionListener(e -> {
             this.searchField.setText("");
             this.categoryCombo.setSelectedIndex(0);
             this.loadCatalog();
         });
-        jPanel3.add(jButton);
-        jPanel3.add(jButton2);
-        jPanel2.add((Component)jPanel3, "North");
-        Object[] objectArray = new String[]{"ID", "Product Name", "Description", "Stock", "Price (INR)", "Category"};
-        this.catalogModel = new DefaultTableModel(objectArray, 0){
+        filterPanel.add(filterBtn);
+        filterPanel.add(resetBtn);
+        catalogCard.add(filterPanel, BorderLayout.NORTH);
 
+        String[] headers = new String[]{"ID", "Product Name", "Description", "Stock", "Price (INR)", "Category"};
+        this.catalogModel = new DefaultTableModel(headers, 0) {
             @Override
-            public boolean isCellEditable(int n, int n2) {
+            public boolean isCellEditable(int row, int col) {
                 return false;
             }
         };
         this.catalogTable = new JTable(this.catalogModel);
         UIUtils.formatTable(this.catalogTable);
         this.catalogTable.setSelectionMode(0);
-        this.catalogTable.getSelectionModel().addListSelectionListener(listSelectionEvent -> {
-            if (!listSelectionEvent.getValueIsAdjusting()) {
+        this.catalogTable.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
                 this.updateCheckoutCard();
             }
         });
-        jPanel2.add((Component)new JScrollPane(this.catalogTable), "Center");
-        jPanel.add((Component)jPanel2, "Center");
-        JPanel jPanel4 = UIUtils.createCard("\ud83d\uded2 Quick Checkout (TCL)");
-        jPanel4.setPreferredSize(new Dimension(345, 600));
-        jPanel4.setLayout(new BoxLayout(jPanel4, 1));
+        catalogCard.add(new JScrollPane(this.catalogTable), BorderLayout.CENTER);
+        container.add(catalogCard, BorderLayout.CENTER);
 
-        // 1. Session Timer Bar
-        JPanel timerBar = new JPanel(new BorderLayout(8, 0));
+        // Right Quick Action / Checkout Sidebar
+        JPanel rightCard = UIUtils.createCard("\u26a1 Quick Order / Cart Actions");
+        rightCard.setPreferredSize(new Dimension(360, 600));
+        rightCard.setLayout(new BoxLayout(rightCard, BoxLayout.Y_AXIS));
+
+        // Reservation Timer Bar
+        JPanel timerBar = new JPanel(new BorderLayout());
         timerBar.setOpaque(false);
-        timerBar.setMaximumSize(new Dimension(320, 28));
-        this.timerLabel = new JLabel("\u23f1\ufe0f Cart Hold: 05:00", 2);
-        this.timerLabel.setFont(new Font("Segoe UI", 1, 12));
-        this.timerLabel.setForeground(new Color(217, 119, 6));
+        timerBar.setMaximumSize(new Dimension(340, 28));
+        this.timerLabel = new JLabel("\u23f1\ufe0f Cart Hold: 05:00");
+        this.timerLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        this.timerLabel.setForeground(UIUtils.PRIMARY_DARK);
         JButton resetTimerBtn = new JButton("\u21ba Reset");
-        resetTimerBtn.setToolTipText("Reset 5-minute checkout reservation");
-        resetTimerBtn.setFont(new Font("Segoe UI", 0, 11));
-        resetTimerBtn.setMargin(new Insets(1, 6, 1, 6));
-        resetTimerBtn.addActionListener(actionEvent -> this.resetReservationTimer());
-        timerBar.add((Component)this.timerLabel, "Center");
-        timerBar.add((Component)resetTimerBtn, "East");
+        resetTimerBtn.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        resetTimerBtn.setMargin(new java.awt.Insets(1, 6, 1, 6));
+        resetTimerBtn.addActionListener(e -> this.resetReservationTimer());
+        timerBar.add(this.timerLabel, BorderLayout.WEST);
+        timerBar.add(resetTimerBtn, BorderLayout.EAST);
+
+        this.checkoutTimer = new Timer(1000, e -> this.onTimerTick());
 
         this.selectedProductLabel = new JLabel("Select an item from the catalog");
-        this.selectedProductLabel.setFont(new Font("Segoe UI", 1, 14));
-        this.selectedProductLabel.setForeground(UIUtils.PRIMARY_DARK);
+        this.selectedProductLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
         this.selectedPriceLabel = new JLabel("Price: \u20b90.00");
-        this.selectedPriceLabel.setFont(new Font("Segoe UI", 1, 13));
+        this.selectedPriceLabel.setForeground(UIUtils.TEXT_MUTED);
         this.selectedStockLabel = new JLabel("Stock: -");
-        this.selectedStockLabel.setFont(new Font("Segoe UI", 0, 12));
         this.selectedStockLabel.setForeground(UIUtils.TEXT_MUTED);
 
         this.quantitySpinner = new JSpinner(new SpinnerNumberModel(1, 1, 999, 1));
-        this.quantitySpinner.setMaximumSize(new Dimension(320, 30));
-        this.quantitySpinner.addChangeListener(changeEvent -> this.recalculateTotal());
+        this.quantitySpinner.setMaximumSize(new Dimension(340, 32));
+        this.quantitySpinner.addChangeListener(e -> this.recalculateTotal());
 
-        this.carrierBox = new JComboBox<String>(new String[]{"BlueDart", "DTDC", "Delhivery", "IndiaPost"});
-        this.carrierBox.setMaximumSize(new Dimension(320, 30));
+        this.carrierBox = new JComboBox<>(new String[]{"BlueDart Express", "FedEx Priority", "Delhivery Surface", "DTDC Express"});
+        this.carrierBox.setMaximumSize(new Dimension(340, 32));
 
-        this.paymentMethodBox = new JComboBox<String>(new String[]{
-            "UPI / Instant Pay",
-            "Credit / Debit Card",
-            "Cash on Delivery (COD)",
-            "Net Banking"
-        });
-        this.paymentMethodBox.setMaximumSize(new Dimension(320, 30));
+        this.paymentMethodBox = new JComboBox<>(new String[]{"UPI / QR Instant Pay", "Credit / Debit Card", "Cash on Delivery (COD)", "Net Banking"});
+        this.paymentMethodBox.setMaximumSize(new Dimension(340, 32));
 
-        // Dynamic Payment Details Panel
         this.paymentCardLayout = new CardLayout();
         this.paymentDetailsPanel = new JPanel(this.paymentCardLayout);
         this.paymentDetailsPanel.setOpaque(false);
-        this.paymentDetailsPanel.setMaximumSize(new Dimension(320, 68));
-        this.paymentDetailsPanel.setPreferredSize(new Dimension(320, 68));
+        this.paymentDetailsPanel.setMaximumSize(new Dimension(340, 75));
 
-        // UPI Panel
+        // Payment sub-forms
         JPanel upiPanel = new JPanel(new GridLayout(2, 1, 2, 2));
         upiPanel.setOpaque(false);
-        JLabel upiLabel = new JLabel("UPI ID (e.g. name@okhdfcbank):");
-        upiLabel.setFont(new Font("Segoe UI", 0, 11));
-        upiLabel.setForeground(UIUtils.TEXT_MUTED);
-        this.upiField = new JTextField("customer@okaxis");
-        this.upiField.setToolTipText("Enter valid UPI ID (e.g. user@okhdfcbank, name@upi)");
-        upiPanel.add(upiLabel);
+        JLabel upiLbl = new JLabel("Enter UPI ID (e.g. user@okhdfcbank):");
+        upiLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        upiLbl.setForeground(UIUtils.TEXT_MUTED);
+        this.upiField = new JTextField("customer@okhdfcbank");
+        upiPanel.add(upiLbl);
         upiPanel.add(this.upiField);
 
-        // Card Panel (Card No + Expiry + CVV)
-        JPanel cardPanel = new JPanel(new GridLayout(2, 1, 2, 2));
+        JPanel cardPanel = new JPanel(new GridLayout(2, 2, 6, 4));
         cardPanel.setOpaque(false);
-        this.cardNumberField = new JTextField("4532 8901 2345 6789");
-        this.cardNumberField.setToolTipText("16-digit card number");
-        JPanel cardRow2 = new JPanel(new GridLayout(1, 4, 4, 0));
-        cardRow2.setOpaque(false);
-        JLabel expLbl = new JLabel("Exp:");
-        expLbl.setFont(new Font("Segoe UI", 0, 11));
-        expLbl.setForeground(UIUtils.TEXT_MUTED);
+        this.cardNumberField = new JTextField("4532750012345678");
         this.cardExpiryField = new JTextField("12/28");
-        this.cardExpiryField.setToolTipText("Expiry date MM/YY");
-        JLabel cvvLbl = new JLabel("CVV:");
-        cvvLbl.setFont(new Font("Segoe UI", 1, 11));
-        cvvLbl.setForeground(UIUtils.PRIMARY_DARK);
-        this.cardCvvField = new JPasswordField("789");
-        this.cardCvvField.setToolTipText("3 or 4 digit CVV/CVC on card back");
-        cardRow2.add(expLbl);
-        cardRow2.add(this.cardExpiryField);
-        cardRow2.add(cvvLbl);
-        cardRow2.add(this.cardCvvField);
+        this.cardCvvField = new JPasswordField("123");
+        cardPanel.add(new JLabel("Card Number:"));
         cardPanel.add(this.cardNumberField);
-        cardPanel.add(cardRow2);
+        JPanel cardSub = new JPanel(new GridLayout(1, 4, 4, 0));
+        cardSub.setOpaque(false);
+        cardSub.add(new JLabel("Exp:"));
+        cardSub.add(this.cardExpiryField);
+        cardSub.add(new JLabel("CVV:"));
+        cardSub.add(this.cardCvvField);
+        cardPanel.add(new JLabel("Details:"));
+        cardPanel.add(cardSub);
 
-        // COD Panel
         JPanel codPanel = new JPanel(new BorderLayout());
         codPanel.setOpaque(false);
-        JLabel codInfo = new JLabel("<html><i>\ud83d\udcb5 Pay cash or scan QR at doorstep delivery.<br/>No convenience fee charged.</i></html>");
-        codInfo.setFont(new Font("Segoe UI", 0, 11));
-        codInfo.setForeground(UIUtils.TEXT_MUTED);
-        codPanel.add((Component)codInfo, "Center");
+        JLabel codLbl = new JLabel("<html><font color='#10b981'>\u2714 Cash on Delivery eligible.</font><br><font color='#64748b' size='2'>Pay in cash/UPI upon door delivery.</font></html>");
+        codPanel.add(codLbl, BorderLayout.CENTER);
 
-        // Net Banking Panel
         JPanel netPanel = new JPanel(new GridLayout(2, 1, 2, 2));
         netPanel.setOpaque(false);
         JLabel bankLbl = new JLabel("Select Bank:");
-        bankLbl.setFont(new Font("Segoe UI", 0, 11));
+        bankLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         bankLbl.setForeground(UIUtils.TEXT_MUTED);
-        this.bankSelectBox = new JComboBox<String>(new String[]{
-            "HDFC Bank", "State Bank of India (SBI)", "ICICI Bank", "Axis Bank", "Kotak Mahindra Bank"
-        });
+        this.bankSelectBox = new JComboBox<>(new String[]{"HDFC Bank", "State Bank of India (SBI)", "ICICI Bank", "Axis Bank", "Kotak Mahindra Bank"});
         netPanel.add(bankLbl);
         netPanel.add(this.bankSelectBox);
 
-        this.paymentDetailsPanel.add((Component)upiPanel, "UPI");
-        this.paymentDetailsPanel.add((Component)cardPanel, "CARD");
-        this.paymentDetailsPanel.add((Component)codPanel, "COD");
-        this.paymentDetailsPanel.add((Component)netPanel, "NET");
+        this.paymentDetailsPanel.add(upiPanel, "UPI");
+        this.paymentDetailsPanel.add(cardPanel, "CARD");
+        this.paymentDetailsPanel.add(codPanel, "COD");
+        this.paymentDetailsPanel.add(netPanel, "NET");
 
-        this.paymentMethodBox.addActionListener(actionEvent -> {
+        this.paymentMethodBox.addActionListener(e -> {
             int sel = this.paymentMethodBox.getSelectedIndex();
             if (sel == 0) this.paymentCardLayout.show(this.paymentDetailsPanel, "UPI");
             else if (sel == 1) this.paymentCardLayout.show(this.paymentDetailsPanel, "CARD");
@@ -272,144 +292,469 @@ extends JPanel {
         });
 
         this.subtotalLabel = new JLabel("Total: \u20b90.00");
-        this.subtotalLabel.setFont(new Font("Segoe UI", 1, 18));
+        this.subtotalLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
         this.subtotalLabel.setForeground(UIUtils.SUCCESS);
 
-        this.placeOrderBtn = UIUtils.createButton("\u2605 Place Order (TCL Checkout)", UIUtils.SUCCESS, Color.WHITE);
-        this.placeOrderBtn.setMaximumSize(new Dimension(320, 38));
-        this.placeOrderBtn.setFont(new Font("Segoe UI", 1, 13));
+        // Action Buttons
+        this.addToCartBtn = UIUtils.createButton("\ud83d\uded2 Add to Cart", UIUtils.PRIMARY_DARK, Color.WHITE);
+        this.addToCartBtn.setMaximumSize(new Dimension(340, 36));
+        this.addToCartBtn.setEnabled(false);
+        this.addToCartBtn.addActionListener(e -> this.addItemToCart(false));
+
+        this.buyNowBtn = UIUtils.createButton("\u26a1 Buy Now (Go to Cart)", new Color(139, 92, 246), Color.WHITE);
+        this.buyNowBtn.setMaximumSize(new Dimension(340, 36));
+        this.buyNowBtn.setEnabled(false);
+        this.buyNowBtn.addActionListener(e -> this.addItemToCart(true));
+
+        this.placeOrderBtn = UIUtils.createButton("\u2605 Instant Single Checkout", UIUtils.SUCCESS, Color.WHITE);
+        this.placeOrderBtn.setMaximumSize(new Dimension(340, 36));
         this.placeOrderBtn.setEnabled(false);
-        this.placeOrderBtn.addActionListener(actionEvent -> this.executeTCLCheckout());
+        this.placeOrderBtn.addActionListener(e -> this.executeTCLCheckout());
 
         // Assembly
-        jPanel4.add(timerBar);
-        jPanel4.add(Box.createVerticalStrut(8));
-        jPanel4.add(this.selectedProductLabel);
-        jPanel4.add(Box.createVerticalStrut(4));
-        jPanel4.add(this.selectedPriceLabel);
-        jPanel4.add(this.selectedStockLabel);
-        jPanel4.add(Box.createVerticalStrut(10));
-        jPanel4.add(new JLabel("Order Quantity:"));
-        jPanel4.add(this.quantitySpinner);
-        jPanel4.add(Box.createVerticalStrut(8));
-        jPanel4.add(new JLabel("Delivery Courier:"));
-        jPanel4.add(this.carrierBox);
-        jPanel4.add(Box.createVerticalStrut(8));
-        jPanel4.add(new JLabel("Payment Method:"));
-        jPanel4.add(this.paymentMethodBox);
-        jPanel4.add(Box.createVerticalStrut(6));
-        jPanel4.add(this.paymentDetailsPanel);
-        jPanel4.add(Box.createVerticalStrut(10));
-        jPanel4.add(this.subtotalLabel);
-        jPanel4.add(Box.createVerticalStrut(10));
-        jPanel4.add(this.placeOrderBtn);
+        rightCard.add(timerBar);
+        rightCard.add(Box.createVerticalStrut(8));
+        rightCard.add(this.selectedProductLabel);
+        rightCard.add(Box.createVerticalStrut(4));
+        rightCard.add(this.selectedPriceLabel);
+        rightCard.add(this.selectedStockLabel);
+        rightCard.add(Box.createVerticalStrut(10));
+        rightCard.add(new JLabel("Order Quantity:"));
+        rightCard.add(this.quantitySpinner);
+        rightCard.add(Box.createVerticalStrut(10));
+        rightCard.add(this.addToCartBtn);
+        rightCard.add(Box.createVerticalStrut(6));
+        rightCard.add(this.buyNowBtn);
+        rightCard.add(Box.createVerticalStrut(12));
+        rightCard.add(new JLabel("--- Single Item Instant Checkout ---"));
+        rightCard.add(Box.createVerticalStrut(8));
+        rightCard.add(new JLabel("Delivery Courier:"));
+        rightCard.add(this.carrierBox);
+        rightCard.add(Box.createVerticalStrut(6));
+        rightCard.add(new JLabel("Payment Method:"));
+        rightCard.add(this.paymentMethodBox);
+        rightCard.add(Box.createVerticalStrut(6));
+        rightCard.add(this.paymentDetailsPanel);
+        rightCard.add(Box.createVerticalStrut(8));
+        rightCard.add(this.subtotalLabel);
+        rightCard.add(Box.createVerticalStrut(8));
+        rightCard.add(this.placeOrderBtn);
 
-        JScrollPane checkoutScroll = new JScrollPane(jPanel4);
-        checkoutScroll.setBorder(BorderFactory.createEmptyBorder());
-        checkoutScroll.setHorizontalScrollBarPolicy(31); // HORIZONTAL_SCROLLBAR_NEVER
-        checkoutScroll.setPreferredSize(new Dimension(360, 520));
-        jPanel.add((Component)checkoutScroll, "East");
-        return jPanel;
+        JScrollPane scroll = new JScrollPane(rightCard);
+        scroll.setBorder(BorderFactory.createEmptyBorder());
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.setPreferredSize(new Dimension(375, 520));
+        container.add(scroll, BorderLayout.EAST);
+
+        return container;
+    }
+
+    private JPanel createCartTab() {
+        JPanel container = new JPanel(new BorderLayout(16, 16));
+        container.setOpaque(false);
+
+        // Cart Table Card
+        JPanel tableCard = UIUtils.createCard("\ud83d\uded2 Shopping Cart Ledger");
+        String[] cartHeaders = new String[]{"Product ID", "Item Description", "Category", "Unit Price (\u20b9)", "Quantity", "Item Subtotal (\u20b9)"};
+        this.cartModel = new DefaultTableModel(cartHeaders, 0) {
+            @Override
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
+        };
+        this.cartTable = new JTable(this.cartModel);
+        UIUtils.formatTable(this.cartTable);
+        this.cartTable.setSelectionMode(0);
+
+        tableCard.add(new JScrollPane(this.cartTable), BorderLayout.CENTER);
+
+        // Cart Buttons Panel
+        JPanel actionsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 8));
+        actionsPanel.setOpaque(false);
+
+        JButton btnAddQty = UIUtils.createButton("\u2795 Qty (+1)", new Color(241, 245, 249), UIUtils.TEXT_DARK);
+        JButton btnSubQty = UIUtils.createButton("\u2796 Qty (-1)", new Color(241, 245, 249), UIUtils.TEXT_DARK);
+        JButton btnRemove = UIUtils.createButton("\ud83d\uddd1\ufe0f Remove Item", UIUtils.DANGER, Color.WHITE);
+        JButton btnClear = UIUtils.createButton("\ud83e\uddf9 Clear Cart", new Color(241, 245, 249), UIUtils.TEXT_DARK);
+
+        btnAddQty.addActionListener(e -> {
+            int row = this.cartTable.getSelectedRow();
+            if (row >= 0) {
+                int pId = (Integer)this.cartModel.getValueAt(row, 0);
+                int currentQty = (Integer)this.cartModel.getValueAt(row, 4);
+                ShoppingCart.getInstance().updateQuantity(pId, currentQty + 1);
+            } else {
+                JOptionPane.showMessageDialog(this, "Please select an item from the cart table.", "Selection Required", JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
+
+        btnSubQty.addActionListener(e -> {
+            int row = this.cartTable.getSelectedRow();
+            if (row >= 0) {
+                int pId = (Integer)this.cartModel.getValueAt(row, 0);
+                int currentQty = (Integer)this.cartModel.getValueAt(row, 4);
+                ShoppingCart.getInstance().updateQuantity(pId, currentQty - 1);
+            } else {
+                JOptionPane.showMessageDialog(this, "Please select an item from the cart table.", "Selection Required", JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
+
+        btnRemove.addActionListener(e -> {
+            int row = this.cartTable.getSelectedRow();
+            if (row >= 0) {
+                int pId = (Integer)this.cartModel.getValueAt(row, 0);
+                ShoppingCart.getInstance().removeItem(pId);
+                Window win = SwingUtilities.getWindowAncestor(this);
+                ToastNotification.show(win, "Item Removed", "Item was removed from your cart.", ToastNotification.Type.INFO);
+            } else {
+                JOptionPane.showMessageDialog(this, "Please select an item to remove.", "Selection Required", JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
+
+        btnClear.addActionListener(e -> {
+            if (ShoppingCart.getInstance().getItemCount() > 0) {
+                ShoppingCart.getInstance().clear();
+                Window win = SwingUtilities.getWindowAncestor(this);
+                ToastNotification.show(win, "Cart Cleared", "All items have been removed from your cart.", ToastNotification.Type.INFO);
+            }
+        });
+
+        actionsPanel.add(btnAddQty);
+        actionsPanel.add(btnSubQty);
+        actionsPanel.add(btnRemove);
+        actionsPanel.add(btnClear);
+        tableCard.add(actionsPanel, BorderLayout.SOUTH);
+        container.add(tableCard, BorderLayout.CENTER);
+
+        // Right Checkout Card
+        JPanel checkoutCard = UIUtils.createCard("\ud83d\udcb3 Multi-Item Checkout");
+        checkoutCard.setPreferredSize(new Dimension(360, 600));
+        checkoutCard.setLayout(new BoxLayout(checkoutCard, BoxLayout.Y_AXIS));
+
+        this.cartSubtotalLabel = new JLabel("Subtotal: \u20b90.00");
+        this.cartSubtotalLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+
+        // Coupon code box
+        JPanel couponPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
+        couponPanel.setOpaque(false);
+        couponPanel.setMaximumSize(new Dimension(340, 36));
+        this.cartCouponField = new JTextField(9);
+        JButton applyCouponBtn = UIUtils.createButton("Apply", UIUtils.PRIMARY_DARK, Color.WHITE);
+        applyCouponBtn.setPreferredSize(new Dimension(75, 30));
+        applyCouponBtn.addActionListener(e -> {
+            String code = this.cartCouponField.getText().trim();
+            boolean ok = ShoppingCart.getInstance().applyCoupon(code);
+            Window win = SwingUtilities.getWindowAncestor(this);
+            if (ok && !code.isEmpty()) {
+                this.cartCouponStatusLabel.setText("\u2714 Applied: " + code.toUpperCase());
+                this.cartCouponStatusLabel.setForeground(UIUtils.SUCCESS);
+                ToastNotification.show(win, "Coupon Applied", "Discount code " + code.toUpperCase() + " applied successfully!", ToastNotification.Type.SUCCESS);
+            } else if (code.isEmpty()) {
+                this.cartCouponStatusLabel.setText("Promos: SAVE10, AURA20, FIRST50");
+                this.cartCouponStatusLabel.setForeground(UIUtils.TEXT_MUTED);
+            } else {
+                this.cartCouponStatusLabel.setText("\u2716 Invalid Coupon Code");
+                this.cartCouponStatusLabel.setForeground(UIUtils.DANGER);
+                ToastNotification.show(win, "Invalid Coupon", "Promo code not recognized.", ToastNotification.Type.WARNING);
+            }
+        });
+        couponPanel.add(new JLabel("Promo:"));
+        couponPanel.add(this.cartCouponField);
+        couponPanel.add(applyCouponBtn);
+
+        this.cartCouponStatusLabel = new JLabel("Promos: SAVE10, AURA20, FIRST50");
+        this.cartCouponStatusLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        this.cartCouponStatusLabel.setForeground(UIUtils.TEXT_MUTED);
+
+        this.cartDiscountLabel = new JLabel("Discount: \u20b90.00");
+        this.cartDiscountLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        this.cartDiscountLabel.setForeground(UIUtils.TEXT_MUTED);
+
+        this.cartTaxLabel = new JLabel("GST (5%): +\u20b90.00");
+        this.cartTaxLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        this.cartTaxLabel.setForeground(UIUtils.TEXT_MUTED);
+
+        this.cartGrandTotalLabel = new JLabel("Grand Total: \u20b90.00");
+        this.cartGrandTotalLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        this.cartGrandTotalLabel.setForeground(UIUtils.SUCCESS);
+
+        this.cartCarrierBox = new JComboBox<>(new String[]{"BlueDart Express", "FedEx Priority", "Delhivery Surface", "DTDC Express"});
+        this.cartCarrierBox.setMaximumSize(new Dimension(340, 32));
+
+        this.cartPaymentMethodBox = new JComboBox<>(new String[]{"UPI / QR Instant Pay", "Credit / Debit Card", "Cash on Delivery (COD)", "Net Banking"});
+        this.cartPaymentMethodBox.setMaximumSize(new Dimension(340, 32));
+
+        this.cartPaymentCardLayout = new CardLayout();
+        this.cartPaymentDetailsPanel = new JPanel(this.cartPaymentCardLayout);
+        this.cartPaymentDetailsPanel.setOpaque(false);
+        this.cartPaymentDetailsPanel.setMaximumSize(new Dimension(340, 75));
+
+        JPanel cartUpiPanel = new JPanel(new GridLayout(2, 1, 2, 2));
+        cartUpiPanel.setOpaque(false);
+        this.cartUpiField = new JTextField("customer@okhdfcbank");
+        cartUpiPanel.add(new JLabel("UPI ID / VPA:"));
+        cartUpiPanel.add(this.cartUpiField);
+
+        JPanel cartCardPanel = new JPanel(new GridLayout(2, 2, 6, 4));
+        cartCardPanel.setOpaque(false);
+        this.cartCardNumberField = new JTextField("4532750012345678");
+        this.cartCardExpiryField = new JTextField("12/28");
+        this.cartCardCvvField = new JPasswordField("123");
+        cartCardPanel.add(new JLabel("Card:"));
+        cartCardPanel.add(this.cartCardNumberField);
+        JPanel cartSub = new JPanel(new GridLayout(1, 4, 4, 0));
+        cartSub.setOpaque(false);
+        cartSub.add(new JLabel("Exp:"));
+        cartSub.add(this.cartCardExpiryField);
+        cartSub.add(new JLabel("CVV:"));
+        cartSub.add(this.cartCardCvvField);
+        cartCardPanel.add(new JLabel("Auth:"));
+        cartCardPanel.add(cartSub);
+
+        JPanel cartCodPanel = new JPanel(new BorderLayout());
+        cartCodPanel.setOpaque(false);
+        cartCodPanel.add(new JLabel("<html><font color='#10b981'>\u2714 Free COD Available</font></html>"), BorderLayout.CENTER);
+
+        JPanel cartNetPanel = new JPanel(new GridLayout(2, 1, 2, 2));
+        cartNetPanel.setOpaque(false);
+        this.cartBankSelectBox = new JComboBox<>(new String[]{"HDFC Bank", "State Bank of India (SBI)", "ICICI Bank", "Axis Bank", "Kotak Mahindra Bank"});
+        cartNetPanel.add(new JLabel("Select Bank:"));
+        cartNetPanel.add(this.cartBankSelectBox);
+
+        this.cartPaymentDetailsPanel.add(cartUpiPanel, "UPI");
+        this.cartPaymentDetailsPanel.add(cartCardPanel, "CARD");
+        this.cartPaymentDetailsPanel.add(cartCodPanel, "COD");
+        this.cartPaymentDetailsPanel.add(cartNetPanel, "NET");
+
+        this.cartPaymentMethodBox.addActionListener(e -> {
+            int sel = this.cartPaymentMethodBox.getSelectedIndex();
+            if (sel == 0) this.cartPaymentCardLayout.show(this.cartPaymentDetailsPanel, "UPI");
+            else if (sel == 1) this.cartPaymentCardLayout.show(this.cartPaymentDetailsPanel, "CARD");
+            else if (sel == 2) this.cartPaymentCardLayout.show(this.cartPaymentDetailsPanel, "COD");
+            else if (sel == 3) this.cartPaymentCardLayout.show(this.cartPaymentDetailsPanel, "NET");
+        });
+
+        this.cartCheckoutBtn = UIUtils.createButton("\u2605 Place Order (Multi-Item TCL Checkout)", UIUtils.SUCCESS, Color.WHITE);
+        this.cartCheckoutBtn.setMaximumSize(new Dimension(340, 40));
+        this.cartCheckoutBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        this.cartCheckoutBtn.setEnabled(false);
+        this.cartCheckoutBtn.addActionListener(e -> this.executeMultiItemCheckout());
+
+        // Assembly
+        checkoutCard.add(this.cartSubtotalLabel);
+        checkoutCard.add(Box.createVerticalStrut(8));
+        checkoutCard.add(couponPanel);
+        checkoutCard.add(this.cartCouponStatusLabel);
+        checkoutCard.add(Box.createVerticalStrut(6));
+        checkoutCard.add(this.cartDiscountLabel);
+        checkoutCard.add(this.cartTaxLabel);
+        checkoutCard.add(Box.createVerticalStrut(6));
+        checkoutCard.add(this.cartGrandTotalLabel);
+        checkoutCard.add(Box.createVerticalStrut(12));
+        checkoutCard.add(new JLabel("Delivery Courier:"));
+        checkoutCard.add(this.cartCarrierBox);
+        checkoutCard.add(Box.createVerticalStrut(8));
+        checkoutCard.add(new JLabel("Payment Method:"));
+        checkoutCard.add(this.cartPaymentMethodBox);
+        checkoutCard.add(Box.createVerticalStrut(6));
+        checkoutCard.add(this.cartPaymentDetailsPanel);
+        checkoutCard.add(Box.createVerticalStrut(14));
+        checkoutCard.add(this.cartCheckoutBtn);
+
+        JScrollPane scroll = new JScrollPane(checkoutCard);
+        scroll.setBorder(BorderFactory.createEmptyBorder());
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.setPreferredSize(new Dimension(375, 520));
+        container.add(scroll, BorderLayout.EAST);
+
+        return container;
     }
 
     private JPanel createMyOrdersTab() {
-        JPanel jPanel = UIUtils.createCard("\ud83d\udce6 Order History & Shipping Status");
-        Object[] objectArray = new String[]{"Order ID", "Date", "Amount (INR)", "Order Status", "Carrier", "Tracking No", "Delivery Status"};
-        this.myOrdersModel = new DefaultTableModel(objectArray, 0){
-
+        JPanel card = UIUtils.createCard("\ud83d\udce6 Order History & Shipping Status");
+        String[] headers = new String[]{"Order ID", "Date", "Amount (INR)", "Order Status", "Carrier", "Tracking No", "Delivery Status"};
+        this.myOrdersModel = new DefaultTableModel(headers, 0) {
             @Override
-            public boolean isCellEditable(int n, int n2) {
+            public boolean isCellEditable(int r, int c) {
                 return false;
             }
         };
         this.myOrdersTable = new JTable(this.myOrdersModel);
         UIUtils.formatTable(this.myOrdersTable);
-        jPanel.add((Component)new JScrollPane(this.myOrdersTable), "Center");
-        JPanel jPanel2 = new JPanel(new FlowLayout(2, 10, 8));
-        jPanel2.setOpaque(false);
-        JButton jButton = UIUtils.createButton("\ud83d\udd04 Refresh Orders", new Color(241, 245, 249), UIUtils.TEXT_DARK);
-        jButton.addActionListener(actionEvent -> this.loadMyOrders());
-        jPanel2.add(jButton);
-        jPanel.add((Component)jPanel2, "South");
-        return jPanel;
+        card.add(new JScrollPane(this.myOrdersTable), BorderLayout.CENTER);
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 8));
+        actions.setOpaque(false);
+
+        JButton viewInvoiceBtn = UIUtils.createButton("\ud83d\udcc4 Download / View PDF Invoice", UIUtils.PRIMARY_DARK, Color.WHITE);
+        viewInvoiceBtn.addActionListener(e -> {
+            int row = this.myOrdersTable.getSelectedRow();
+            if (row < 0) {
+                JOptionPane.showMessageDialog(this, "Please select an order from your history to download its invoice.", "Select Order", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            int orderId = (Integer)this.myOrdersModel.getValueAt(row, 0);
+            InvoicePdfGenerator.exportOrderToPdf(orderId, this);
+        });
+
+        JButton refreshOrdersBtn = UIUtils.createButton("\ud83d\udd04 Refresh Orders", new Color(241, 245, 249), UIUtils.TEXT_DARK);
+        refreshOrdersBtn.addActionListener(e -> this.loadMyOrders());
+
+        actions.add(viewInvoiceBtn);
+        actions.add(refreshOrdersBtn);
+        card.add(actions, BorderLayout.SOUTH);
+        return card;
     }
 
     private JPanel createReviewsTab() {
-        JPanel jPanel = UIUtils.createCard("\u270d\ufe0f Verified Customer Reviews & Feedback");
-        Object[] objectArray = new String[]{"Review ID", "Product", "Rating", "Comment", "Review Date"};
-        this.reviewsModel = new DefaultTableModel(objectArray, 0){
-
+        JPanel card = UIUtils.createCard("\u270d\ufe0f Verified Customer Reviews & Feedback");
+        String[] headers = new String[]{"Review ID", "Product", "Rating", "Comment", "Review Date"};
+        this.reviewsModel = new DefaultTableModel(headers, 0) {
             @Override
-            public boolean isCellEditable(int n, int n2) {
+            public boolean isCellEditable(int r, int c) {
                 return false;
             }
         };
         this.reviewsTable = new JTable(this.reviewsModel);
         UIUtils.formatTable(this.reviewsTable);
-        jPanel.add((Component)new JScrollPane(this.reviewsTable), "Center");
-        JPanel jPanel2 = new JPanel(new FlowLayout(2, 10, 8));
-        jPanel2.setOpaque(false);
-        JButton jButton = UIUtils.createButton("\u270d\ufe0f Write New Review", UIUtils.PRIMARY, Color.WHITE);
-        jButton.addActionListener(actionEvent -> this.showAddReviewDialog());
-        jPanel2.add(jButton);
-        jPanel.add((Component)jPanel2, "South");
-        return jPanel;
+        card.add(new JScrollPane(this.reviewsTable), BorderLayout.CENTER);
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 8));
+        actions.setOpaque(false);
+
+        JButton addReviewBtn = UIUtils.createButton("\u270d\ufe0f Write New Review", UIUtils.PRIMARY, Color.WHITE);
+        addReviewBtn.addActionListener(e -> this.showAddReviewDialog());
+        actions.add(addReviewBtn);
+
+        card.add(actions, BorderLayout.SOUTH);
+        return card;
+    }
+
+    private void addItemToCart(boolean goToCart) {
+        int row = this.catalogTable.getSelectedRow();
+        if (row < 0) {
+            JOptionPane.showMessageDialog(this, "Please select a product from the catalog first.", "Select Product", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        int productId = (Integer)this.catalogModel.getValueAt(row, 0);
+        String name = (String)this.catalogModel.getValueAt(row, 1);
+        int stock = (Integer)this.catalogModel.getValueAt(row, 3);
+        double price = Double.parseDouble((String)this.catalogModel.getValueAt(row, 4));
+        String category = (String)this.catalogModel.getValueAt(row, 5);
+        int qty = (Integer)this.quantitySpinner.getValue();
+
+        if (stock <= 0) {
+            Window win = SwingUtilities.getWindowAncestor(this);
+            ToastNotification.show(win, "Out of Stock", "'" + name + "' is currently out of stock.", ToastNotification.Type.ERROR);
+            return;
+        }
+        if (qty > stock) {
+            Window win = SwingUtilities.getWindowAncestor(this);
+            ToastNotification.show(win, "Stock Limit", "Only " + stock + " units available in inventory.", ToastNotification.Type.WARNING);
+            return;
+        }
+
+        ShoppingCart.getInstance().addOrUpdateItem(productId, name, price, qty, stock, category);
+        Window win = SwingUtilities.getWindowAncestor(this);
+        ToastNotification.show(win, "Added to Cart", name + " (x" + qty + ") added to your shopping cart!", ToastNotification.Type.SUCCESS);
+
+        if (goToCart) {
+            this.mainTabs.setSelectedIndex(1);
+        }
+    }
+
+    private void refreshCartView() {
+        if (this.cartModel == null) return;
+        this.cartModel.setRowCount(0);
+        ShoppingCart cart = ShoppingCart.getInstance();
+        for (CartItem item : cart.getItems()) {
+            Vector<Object> row = new Vector<>();
+            row.add(item.getProductId());
+            row.add(item.getProductName());
+            row.add(item.getCategory());
+            row.add(String.format("%.2f", item.getUnitPrice()));
+            row.add(item.getQuantity());
+            row.add(String.format("%.2f", item.getSubtotal()));
+            this.cartModel.addRow(row);
+        }
+        double subtotal = cart.getSubtotal();
+        double discount = cart.getDiscount();
+        double tax = cart.getTax(0.05);
+        double grandTotal = cart.getGrandTotal(0.05);
+
+        if (this.cartSubtotalLabel != null) {
+            this.cartSubtotalLabel.setText("Subtotal: \u20b9" + String.format("%.2f", subtotal));
+        }
+        if (this.cartDiscountLabel != null) {
+            if (discount > 0) {
+                this.cartDiscountLabel.setText("Discount (" + cart.getAppliedCoupon() + "): -\u20b9" + String.format("%.2f", discount));
+                this.cartDiscountLabel.setForeground(UIUtils.SUCCESS);
+            } else {
+                this.cartDiscountLabel.setText("Discount: \u20b90.00");
+                this.cartDiscountLabel.setForeground(UIUtils.TEXT_MUTED);
+            }
+        }
+        if (this.cartTaxLabel != null) {
+            this.cartTaxLabel.setText("GST (5%): +\u20b9" + String.format("%.2f", tax));
+        }
+        if (this.cartGrandTotalLabel != null) {
+            this.cartGrandTotalLabel.setText("Grand Total: \u20b9" + String.format("%.2f", grandTotal));
+        }
+        if (this.cartCheckoutBtn != null) {
+            this.cartCheckoutBtn.setEnabled(cart.getItemCount() > 0);
+        }
     }
 
     private void resetReservationTimer() {
         this.remainingSeconds = 300;
         if (this.timerLabel != null) {
             this.timerLabel.setText("\u23f1\ufe0f Cart Hold: 05:00");
-            this.timerLabel.setForeground(new Color(217, 119, 6));
+            this.timerLabel.setForeground(UIUtils.PRIMARY_DARK);
         }
-        if (this.placeOrderBtn != null && this.catalogTable.getSelectedRow() >= 0) {
-            this.placeOrderBtn.setEnabled(true);
+        if (this.checkoutTimer != null && !this.checkoutTimer.isRunning()) {
+            this.checkoutTimer.start();
         }
-        if (this.checkoutTimer == null) {
-            this.checkoutTimer = new Timer(1000, actionEvent -> this.onTimerTick());
-        }
-        this.checkoutTimer.restart();
     }
 
     private void onTimerTick() {
-        if (this.remainingSeconds > 0) {
-            this.remainingSeconds--;
-            int n = this.remainingSeconds / 60;
-            int n2 = this.remainingSeconds % 60;
+        this.remainingSeconds--;
+        if (this.remainingSeconds < 0) {
+            this.remainingSeconds = 0;
+            this.checkoutTimer.stop();
             if (this.timerLabel != null) {
-                this.timerLabel.setText(String.format("\u23f1\ufe0f Cart Hold: %02d:%02d", n, n2));
-                if (this.remainingSeconds <= 30) {
-                    this.timerLabel.setForeground(UIUtils.DANGER);
-                } else {
-                    this.timerLabel.setForeground(new Color(217, 119, 6));
-                }
-            }
-        } else {
-            if (this.checkoutTimer != null) {
-                this.checkoutTimer.stop();
-            }
-            if (this.timerLabel != null) {
-                this.timerLabel.setText("\u23f0 Expired! Please re-select");
+                this.timerLabel.setText("\u23f1\ufe0f Cart Hold: EXPIRED");
                 this.timerLabel.setForeground(UIUtils.DANGER);
             }
             if (this.placeOrderBtn != null) {
                 this.placeOrderBtn.setEnabled(false);
             }
-            JOptionPane.showMessageDialog(this,
-                "Your 5-minute checkout reservation has expired!\nPlease re-select an item or click '\u21ba Reset' to restart.",
-                "Session Expired",
-                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        int min = this.remainingSeconds / 60;
+        int sec = this.remainingSeconds % 60;
+        String timeStr = String.format("%02d:%02d", min, sec);
+        if (this.timerLabel != null) {
+            this.timerLabel.setText("\u23f1\ufe0f Cart Hold: " + timeStr);
+            if (this.remainingSeconds <= 60) {
+                this.timerLabel.setForeground(UIUtils.DANGER);
+            } else if (this.remainingSeconds <= 120) {
+                this.timerLabel.setForeground(UIUtils.WARNING);
+            } else {
+                this.timerLabel.setForeground(UIUtils.PRIMARY_DARK);
+            }
         }
     }
 
     private void updateCheckoutCard() {
-        int n = this.catalogTable.getSelectedRow();
-        if (n < 0) {
+        int row = this.catalogTable.getSelectedRow();
+        if (row < 0) {
             this.selectedProductLabel.setText("Select an item from the catalog");
             this.selectedPriceLabel.setText("Price: \u20b90.00");
             this.selectedStockLabel.setText("Stock: -");
             this.subtotalLabel.setText("Total: \u20b90.00");
             this.placeOrderBtn.setEnabled(false);
+            this.addToCartBtn.setEnabled(false);
+            this.buyNowBtn.setEnabled(false);
             if (this.checkoutTimer != null) {
                 this.checkoutTimer.stop();
             }
@@ -419,105 +764,88 @@ extends JPanel {
             }
             return;
         }
-        String string = (String)this.catalogModel.getValueAt(n, 1);
-        int n2 = (Integer)this.catalogModel.getValueAt(n, 3);
-        double d = Double.parseDouble((String)this.catalogModel.getValueAt(n, 4));
-        this.selectedProductLabel.setText(string);
-        this.selectedPriceLabel.setText("Unit Price: \u20b9" + String.format("%.2f", d));
-        this.selectedStockLabel.setText("Available In Stock: " + n2 + " units");
-        this.quantitySpinner.setModel(new SpinnerNumberModel(1, 1, Math.max(1, n2), 1));
-        this.placeOrderBtn.setEnabled(n2 > 0);
+
+        String name = (String)this.catalogModel.getValueAt(row, 1);
+        int stock = (Integer)this.catalogModel.getValueAt(row, 3);
+        double price = Double.parseDouble((String)this.catalogModel.getValueAt(row, 4));
+
+        this.selectedProductLabel.setText(name);
+        this.selectedPriceLabel.setText("Unit Price: \u20b9" + String.format("%.2f", price));
+        this.selectedStockLabel.setText("Available In Stock: " + stock + " units");
+        this.quantitySpinner.setModel(new SpinnerNumberModel(1, 1, Math.max(1, stock), 1));
+        this.placeOrderBtn.setEnabled(stock > 0);
+        this.addToCartBtn.setEnabled(stock > 0);
+        this.buyNowBtn.setEnabled(stock > 0);
         this.recalculateTotal();
-        if (n2 > 0) {
+        if (stock > 0) {
             this.resetReservationTimer();
         }
     }
 
     private void recalculateTotal() {
-        int n = this.catalogTable.getSelectedRow();
-        if (n < 0) {
-            return;
-        }
-        double d = Double.parseDouble((String)this.catalogModel.getValueAt(n, 4));
-        int n2 = (Integer)this.quantitySpinner.getValue();
-        double d2 = d * (double)n2;
-        this.subtotalLabel.setText("Total: \u20b9" + String.format("%.2f", d2));
+        int row = this.catalogTable.getSelectedRow();
+        if (row < 0) return;
+        double price = Double.parseDouble((String)this.catalogModel.getValueAt(row, 4));
+        int qty = (Integer)this.quantitySpinner.getValue();
+        double total = price * qty;
+        this.subtotalLabel.setText("Total: \u20b9" + String.format("%.2f", total));
     }
 
-    /*
-     * WARNING - Removed try catching itself - possible behaviour change.
-     */
     private void executeTCLCheckout() {
-        int n = this.catalogTable.getSelectedRow();
-        if (n < 0) {
-            return;
-        }
+        int row = this.catalogTable.getSelectedRow();
+        if (row < 0) return;
         if (this.remainingSeconds <= 0) {
-            JOptionPane.showMessageDialog(this,
-                "Your checkout reservation has expired!\nPlease click '\u21ba Reset' or re-select the item to continue.",
-                "Session Expired",
-                JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        int n2 = (Integer)this.catalogModel.getValueAt(n, 0);
-        String string = (String)this.catalogModel.getValueAt(n, 1);
-        int n3 = (Integer)this.catalogModel.getValueAt(n, 3);
-        double d = Double.parseDouble((String)this.catalogModel.getValueAt(n, 4));
-        int n4 = (Integer)this.quantitySpinner.getValue();
-        String string2 = (String)this.carrierBox.getSelectedItem();
-        
-        if (n4 > n3) {
-            JOptionPane.showMessageDialog(this, "Not enough stock! Available: " + n3);
+            JOptionPane.showMessageDialog(this, "Your checkout reservation has expired!\nPlease click '\u21ba Reset' to continue.", "Session Expired", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // Validate payment fields based on selected method
+        int productId = (Integer)this.catalogModel.getValueAt(row, 0);
+        String pName = (String)this.catalogModel.getValueAt(row, 1);
+        int stock = (Integer)this.catalogModel.getValueAt(row, 3);
+        double unitPrice = Double.parseDouble((String)this.catalogModel.getValueAt(row, 4));
+        int qty = (Integer)this.quantitySpinner.getValue();
+        String carrier = (String)this.carrierBox.getSelectedItem();
+
+        if (qty > stock) {
+            JOptionPane.showMessageDialog(this, "Not enough stock! Available: " + stock);
+            return;
+        }
+
+        // Validate payment
         int selPayment = this.paymentMethodBox.getSelectedIndex();
         String paymentTypeStr = "Cash on Delivery";
-        if (selPayment == 0) { // UPI
+        if (selPayment == 0) {
             String upi = this.upiField.getText().trim();
-            if (upi.isEmpty() || !upi.contains("@") || upi.indexOf("@") == 0 || upi.indexOf("@") == upi.length() - 1) {
-                JOptionPane.showMessageDialog(this,
-                    "Please enter a valid UPI ID / VPA!\nExample: yourname@okhdfcbank or 9876543210@upi",
-                    "Invalid UPI ID",
-                    JOptionPane.WARNING_MESSAGE);
+            if (upi.isEmpty() || !upi.contains("@") || upi.startsWith("@") || upi.endsWith("@")) {
+                JOptionPane.showMessageDialog(this, "Please enter a valid UPI ID (e.g. user@okhdfcbank)!", "Invalid UPI ID", JOptionPane.WARNING_MESSAGE);
                 this.upiField.requestFocus();
                 return;
             }
             paymentTypeStr = "UPI: " + upi;
-        } else if (selPayment == 1) { // Card
+        } else if (selPayment == 1) {
             String cardNum = this.cardNumberField.getText().trim().replaceAll("\\s+", "");
             if (cardNum.length() < 12 || !cardNum.matches("\\d+")) {
-                JOptionPane.showMessageDialog(this,
-                    "Please enter a valid Card Number (12 to 19 digits)!",
-                    "Invalid Card Number",
-                    JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Please enter a valid Card Number (12 to 19 digits)!", "Invalid Card", JOptionPane.WARNING_MESSAGE);
                 this.cardNumberField.requestFocus();
                 return;
             }
             String exp = this.cardExpiryField.getText().trim();
             if (!exp.matches("(0[1-9]|1[0-2])/\\d{2}")) {
-                JOptionPane.showMessageDialog(this,
-                    "Please enter a valid Expiry Date in MM/YY format (e.g. 12/28)!",
-                    "Invalid Expiry Date",
-                    JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Please enter Expiry in MM/YY format (e.g. 12/28)!", "Invalid Expiry", JOptionPane.WARNING_MESSAGE);
                 this.cardExpiryField.requestFocus();
                 return;
             }
             String cvv = new String(this.cardCvvField.getPassword()).trim();
             if (!cvv.matches("\\d{3,4}")) {
-                JOptionPane.showMessageDialog(this,
-                    "Please enter a valid 3 or 4 digit CVV security code from the back of your card!",
-                    "Invalid CVV Code",
-                    JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Please enter a valid 3 or 4 digit CVV code!", "Invalid CVV", JOptionPane.WARNING_MESSAGE);
                 this.cardCvvField.requestFocus();
                 return;
             }
             String last4 = cardNum.length() > 4 ? cardNum.substring(cardNum.length() - 4) : cardNum;
-            paymentTypeStr = "Card: ****" + last4 + " (CVV Verified)";
-        } else if (selPayment == 2) { // COD
+            paymentTypeStr = "Card: ****" + last4;
+        } else if (selPayment == 2) {
             paymentTypeStr = "Cash on Delivery (COD)";
-        } else { // Net Banking
+        } else {
             paymentTypeStr = "Net Banking: " + this.bankSelectBox.getSelectedItem();
         }
 
@@ -525,333 +853,377 @@ extends JPanel {
             paymentTypeStr = paymentTypeStr.substring(0, 50);
         }
 
-        Connection connection = null;
+        Connection conn = null;
         try {
-            connection = DBConnection.getConnection();
-            connection.setAutoCommit(false);
-            double d2 = d * (double)n4;
-            int n5 = 1;
-            String string4 = "INSERT INTO shipping (address_id, carrier, tracking_no, status) VALUES (1, ?, ?, 'Pending')";
-            try (PreparedStatement preparedStatement = connection.prepareStatement(string4, Statement.RETURN_GENERATED_KEYS)) {
-                preparedStatement.setString(1, string2);
-                preparedStatement.setString(2, "TRK" + System.currentTimeMillis() % 100000L);
-                preparedStatement.executeUpdate();
-                try (ResultSet rs = preparedStatement.getGeneratedKeys()) {
-                    if (rs.next()) {
-                        n5 = rs.getInt(1);
-                    }
+            conn = DBConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            double totalAmt = unitPrice * qty;
+            int shipmentId = 1;
+            String trackingNo = "TRK" + (System.currentTimeMillis() % 1000000L);
+
+            try (PreparedStatement psShip = conn.prepareStatement("INSERT INTO shipping (address_id, carrier, tracking_no, status) VALUES (1, ?, ?, 'Pending')", Statement.RETURN_GENERATED_KEYS)) {
+                psShip.setString(1, carrier);
+                psShip.setString(2, trackingNo);
+                psShip.executeUpdate();
+                try (ResultSet rs = psShip.getGeneratedKeys()) {
+                    if (rs.next()) shipmentId = rs.getInt(1);
                 }
             }
-            int n6 = 0;
-            String sqlOrder = "INSERT INTO orders (customer_id, shipment_id, total_amount, status) VALUES (?, ?, ?, 'Processing')";
-            try (PreparedStatement preparedStatement2 = connection.prepareStatement(sqlOrder, Statement.RETURN_GENERATED_KEYS)) {
-                preparedStatement2.setInt(1, this.activeCustomerId);
-                preparedStatement2.setInt(2, n5);
-                preparedStatement2.setDouble(3, d2);
-                preparedStatement2.executeUpdate();
-                try (ResultSet resultSet = preparedStatement2.getGeneratedKeys()) {
-                    if (resultSet.next()) {
-                        n6 = resultSet.getInt(1);
-                    }
+
+            int orderId = 0;
+            try (PreparedStatement psOrder = conn.prepareStatement("INSERT INTO orders (customer_id, shipment_id, total_amount, status) VALUES (?, ?, ?, 'Processing')", Statement.RETURN_GENERATED_KEYS)) {
+                psOrder.setInt(1, this.activeCustomerId);
+                psOrder.setInt(2, shipmentId);
+                psOrder.setDouble(3, totalAmt);
+                psOrder.executeUpdate();
+                try (ResultSet rs = psOrder.getGeneratedKeys()) {
+                    if (rs.next()) orderId = rs.getInt(1);
                 }
             }
-            try (PreparedStatement preparedStatement2 = connection.prepareStatement("INSERT INTO order_item (order_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?)")) {
-                preparedStatement2.setInt(1, n6);
-                preparedStatement2.setInt(2, n2);
-                preparedStatement2.setInt(3, n4);
-                preparedStatement2.setDouble(4, d);
-                preparedStatement2.executeUpdate();
+
+            try (PreparedStatement psItem = conn.prepareStatement("INSERT INTO order_item (order_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?)")) {
+                psItem.setInt(1, orderId);
+                psItem.setInt(2, productId);
+                psItem.setInt(3, qty);
+                psItem.setDouble(4, unitPrice);
+                psItem.executeUpdate();
             }
-            try (PreparedStatement preparedStatement2 = connection.prepareStatement("UPDATE product SET stock_qty = stock_qty - ? WHERE product_id = ?")) {
-                preparedStatement2.setInt(1, n4);
-                preparedStatement2.setInt(2, n2);
-                preparedStatement2.executeUpdate();
+
+            try (PreparedStatement psStock = conn.prepareStatement("UPDATE product SET stock_qty = stock_qty - ? WHERE product_id = ?")) {
+                psStock.setInt(1, qty);
+                psStock.setInt(2, productId);
+                psStock.executeUpdate();
             }
-            try (PreparedStatement preparedStatement2 = connection.prepareStatement("INSERT INTO payment (order_id, amount, payment_type, status) VALUES (?, ?, ?, 'Completed')")) {
-                preparedStatement2.setInt(1, n6);
-                preparedStatement2.setDouble(2, d2);
-                preparedStatement2.setString(3, paymentTypeStr);
-                preparedStatement2.executeUpdate();
+
+            try (PreparedStatement psPay = conn.prepareStatement("INSERT INTO payment (order_id, amount, payment_type, status) VALUES (?, ?, ?, 'Completed')")) {
+                psPay.setInt(1, orderId);
+                psPay.setDouble(2, totalAmt);
+                psPay.setString(3, paymentTypeStr);
+                psPay.executeUpdate();
             }
-            connection.commit();
+
+            conn.commit();
 
             if (this.checkoutTimer != null) {
                 this.checkoutTimer.stop();
             }
             this.cardCvvField.setText("");
 
-            JOptionPane.showMessageDialog(this,
-                "SUCCESS! Order placed successfully.\n\n" +
-                "\u2022 Order #" + n6 + " confirmed for " + this.activeCustomerName + "\n" +
-                "\u2022 Item: " + string + " x" + n4 + "\n" +
-                "\u2022 Total Amount: \u20b9" + String.format("%.2f", d2) + "\n" +
-                "\u2022 Payment Method: " + paymentTypeStr + "\n" +
-                "\u2022 Delivery Courier: " + string2 + "\n" +
-                "\u2022 Database: Transaction COMMITTED atomically to MySQL.",
-                "Order Placed",
-                JOptionPane.INFORMATION_MESSAGE);
+            Window win = SwingUtilities.getWindowAncestor(this);
+            ToastNotification.show(win, "Order Placed Successfully", "Order #" + orderId + " placed for \u20b9" + String.format("%.2f", totalAmt), ToastNotification.Type.SUCCESS);
+
+            // Auto-generate PDF Invoice
+            InvoicePdfGenerator.exportOrderToPdf(orderId, this);
 
             this.refreshAllData();
-        }
-        catch (Exception exception) {
-            if (connection != null) {
-                try {
-                    connection.rollback();
-                }
-                catch (Exception exception2) {
-                    // empty catch block
-                }
+            this.mainTabs.setSelectedIndex(2);
+
+        } catch (Exception ex) {
+            if (conn != null) {
+                try { conn.rollback(); } catch (Exception ignore) {}
             }
-            JOptionPane.showMessageDialog(this, "Order Transaction ROLLED BACK:\n" + exception.getMessage(), "Order Failed", JOptionPane.ERROR_MESSAGE);
-        }
-        finally {
-            if (connection != null) {
-                try {
-                    connection.setAutoCommit(true);
-                    connection.close();
-                }
-                catch (Exception exception) {}
+            JOptionPane.showMessageDialog(this, "Order Transaction ROLLED BACK:\n" + ex.getMessage(), "Order Failed", JOptionPane.ERROR_MESSAGE);
+        } finally {
+            if (conn != null) {
+                try { conn.setAutoCommit(true); conn.close(); } catch (Exception ignore) {}
             }
         }
     }
 
+    private void executeMultiItemCheckout() {
+        ShoppingCart cart = ShoppingCart.getInstance();
+        if (cart.getItemCount() == 0) {
+            Window win = SwingUtilities.getWindowAncestor(this);
+            ToastNotification.show(win, "Empty Cart", "Your cart is empty. Add items from the catalog.", ToastNotification.Type.WARNING);
+            return;
+        }
+
+        int selPayment = this.cartPaymentMethodBox.getSelectedIndex();
+        String paymentTypeStr = "Cash on Delivery";
+        if (selPayment == 0) { // UPI
+            String upi = this.cartUpiField.getText().trim();
+            if (upi.isEmpty() || !upi.contains("@") || upi.startsWith("@") || upi.endsWith("@")) {
+                JOptionPane.showMessageDialog(this, "Please enter a valid UPI ID (e.g. user@okhdfcbank)!", "Invalid UPI ID", JOptionPane.WARNING_MESSAGE);
+                this.cartUpiField.requestFocus();
+                return;
+            }
+            paymentTypeStr = "UPI: " + upi;
+        } else if (selPayment == 1) { // Card
+            String cardNum = this.cartCardNumberField.getText().trim().replaceAll("\\s+", "");
+            if (cardNum.length() < 12 || !cardNum.matches("\\d+")) {
+                JOptionPane.showMessageDialog(this, "Please enter a valid Card Number (12 to 19 digits)!", "Invalid Card", JOptionPane.WARNING_MESSAGE);
+                this.cartCardNumberField.requestFocus();
+                return;
+            }
+            String exp = this.cartCardExpiryField.getText().trim();
+            if (!exp.matches("(0[1-9]|1[0-2])/\\d{2}")) {
+                JOptionPane.showMessageDialog(this, "Please enter Expiry in MM/YY format (e.g. 12/28)!", "Invalid Expiry", JOptionPane.WARNING_MESSAGE);
+                this.cartCardExpiryField.requestFocus();
+                return;
+            }
+            String cvv = new String(this.cartCardCvvField.getPassword()).trim();
+            if (!cvv.matches("\\d{3,4}")) {
+                JOptionPane.showMessageDialog(this, "Please enter a valid 3 or 4 digit CVV code!", "Invalid CVV", JOptionPane.WARNING_MESSAGE);
+                this.cartCardCvvField.requestFocus();
+                return;
+            }
+            String last4 = cardNum.length() > 4 ? cardNum.substring(cardNum.length() - 4) : cardNum;
+            paymentTypeStr = "Card: ****" + last4;
+        } else if (selPayment == 2) {
+            paymentTypeStr = "Cash on Delivery (COD)";
+        } else {
+            paymentTypeStr = "Net Banking: " + this.cartBankSelectBox.getSelectedItem();
+        }
+
+        if (paymentTypeStr.length() > 50) {
+            paymentTypeStr = paymentTypeStr.substring(0, 50);
+        }
+
+        String selectedCarrier = (String)this.cartCarrierBox.getSelectedItem();
+        double grandTotal = cart.getGrandTotal(0.05);
+
+        Connection conn = null;
+        try {
+            conn = DBConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            // 1. Verify stock for each cart item
+            for (CartItem item : cart.getItems()) {
+                try (PreparedStatement psStock = conn.prepareStatement("SELECT stock_qty, name FROM product WHERE product_id = ?")) {
+                    psStock.setInt(1, item.getProductId());
+                    try (ResultSet rs = psStock.executeQuery()) {
+                        if (rs.next()) {
+                            int stock = rs.getInt("stock_qty");
+                            if (stock < item.getQuantity()) {
+                                throw new SQLException("Insufficient stock for '" + rs.getString("name") + "' (Available: " + stock + ", requested: " + item.getQuantity() + ")");
+                            }
+                        } else {
+                            throw new SQLException("Product ID " + item.getProductId() + " not found.");
+                        }
+                    }
+                }
+            }
+
+            // 2. Insert shipping
+            int shipmentId = 1;
+            String trackingNo = "TRK" + (System.currentTimeMillis() % 1000000L);
+            try (PreparedStatement psShip = conn.prepareStatement("INSERT INTO shipping (address_id, carrier, tracking_no, status) VALUES (1, ?, ?, 'Pending')", Statement.RETURN_GENERATED_KEYS)) {
+                psShip.setString(1, selectedCarrier);
+                psShip.setString(2, trackingNo);
+                psShip.executeUpdate();
+                try (ResultSet rs = psShip.getGeneratedKeys()) {
+                    if (rs.next()) {
+                        shipmentId = rs.getInt(1);
+                    }
+                }
+            }
+
+            // 3. Insert order
+            int orderId = 0;
+            try (PreparedStatement psOrder = conn.prepareStatement("INSERT INTO orders (customer_id, shipment_id, total_amount, status) VALUES (?, ?, ?, 'Processing')", Statement.RETURN_GENERATED_KEYS)) {
+                psOrder.setInt(1, this.activeCustomerId);
+                psOrder.setInt(2, shipmentId);
+                psOrder.setDouble(3, grandTotal);
+                psOrder.executeUpdate();
+                try (ResultSet rs = psOrder.getGeneratedKeys()) {
+                    if (rs.next()) {
+                        orderId = rs.getInt(1);
+                    }
+                }
+            }
+
+            // 4. Insert each order_item and decrement stock
+            for (CartItem item : cart.getItems()) {
+                try (PreparedStatement psItem = conn.prepareStatement("INSERT INTO order_item (order_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?)")) {
+                    psItem.setInt(1, orderId);
+                    psItem.setInt(2, item.getProductId());
+                    psItem.setInt(3, item.getQuantity());
+                    psItem.setDouble(4, item.getUnitPrice());
+                    psItem.executeUpdate();
+                }
+                try (PreparedStatement psDec = conn.prepareStatement("UPDATE product SET stock_qty = stock_qty - ? WHERE product_id = ?")) {
+                    psDec.setInt(1, item.getQuantity());
+                    psDec.setInt(2, item.getProductId());
+                    psDec.executeUpdate();
+                }
+            }
+
+            // 5. Insert payment
+            try (PreparedStatement psPay = conn.prepareStatement("INSERT INTO payment (order_id, amount, payment_type, status) VALUES (?, ?, ?, 'Completed')")) {
+                psPay.setInt(1, orderId);
+                psPay.setDouble(2, grandTotal);
+                psPay.setString(3, paymentTypeStr);
+                psPay.executeUpdate();
+            }
+
+            conn.commit();
+
+            // Clear cart
+            cart.clear();
+            this.cartCardCvvField.setText("");
+
+            Window win = SwingUtilities.getWindowAncestor(this);
+            ToastNotification.show(win, "Order Confirmed!", "Order #" + orderId + " placed successfully. Total: \u20b9" + String.format("%.2f", grandTotal), ToastNotification.Type.SUCCESS);
+
+            // Export and open PDF Invoice
+            InvoicePdfGenerator.exportOrderToPdf(orderId, this);
+
+            this.refreshAllData();
+            this.mainTabs.setSelectedIndex(2); // Switch to My Orders tab
+        } catch (Exception ex) {
+            if (conn != null) {
+                try { conn.rollback(); } catch (Exception ignore) {}
+            }
+            JOptionPane.showMessageDialog(this, "Order Transaction Failed & Rolled Back:\n" + ex.getMessage(), "Order Error", JOptionPane.ERROR_MESSAGE);
+        } finally {
+            if (conn != null) {
+                try { conn.setAutoCommit(true); conn.close(); } catch (Exception ignore) {}
+            }
+        }
+    }
 
     public void refreshAllData() {
         this.loadCategories();
         this.loadCatalog();
         this.loadMyOrders();
         this.loadReviews();
+        this.refreshCartView();
     }
 
     private void loadCategories() {
         this.categoryCombo.removeAllItems();
         this.categoryCombo.addItem("All Categories");
-        try {
-            Connection connection = DBConnection.getConnection();
-            try {
-                Statement statement = connection.createStatement();
-                try {
-                    ResultSet resultSet = statement.executeQuery("SELECT name FROM category ORDER BY name");
-                    try {
-                        while (resultSet.next()) {
-                            this.categoryCombo.addItem(resultSet.getString("name"));
-                        }
-                    }
-                    finally {
-                        if (resultSet != null) {
-                            resultSet.close();
-                        }
-                    }
-                }
-                finally {
-                    if (statement != null) {
-                        statement.close();
-                    }
-                }
+        try (Connection conn = DBConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT name FROM category ORDER BY name")) {
+            while (rs.next()) {
+                this.categoryCombo.addItem(rs.getString("name"));
             }
-            finally {
-                if (connection != null) {
-                    connection.close();
-                }
-            }
-        }
-        catch (Exception exception) {
-            // empty catch block
-        }
+        } catch (Exception ignored) {}
     }
 
     private void loadCatalog() {
-        String string;
         this.catalogModel.setRowCount(0);
-        StringBuilder stringBuilder = new StringBuilder("SELECT p.product_id, p.name, p.description, p.stock_qty, p.price, c.name AS category_name FROM product p LEFT JOIN category c ON p.category_id = c.category_id WHERE 1=1 ");
-        String string2 = this.searchField.getText().trim();
-        if (!string2.isEmpty()) {
-            stringBuilder.append("AND p.name LIKE ? ");
+        StringBuilder sb = new StringBuilder("SELECT p.product_id, p.name, p.description, p.stock_qty, p.price, c.name AS category_name FROM product p LEFT JOIN category c ON p.category_id = c.category_id WHERE 1=1 ");
+        String search = this.searchField.getText().trim();
+        String cat = (String)this.categoryCombo.getSelectedItem();
+        if (!search.isEmpty()) {
+            sb.append("AND p.name LIKE ? ");
         }
-        if ((string = (String)this.categoryCombo.getSelectedItem()) != null && !string.equals("All Categories")) {
-            stringBuilder.append("AND c.name = ? ");
+        if (cat != null && !cat.equals("All Categories")) {
+            sb.append("AND c.name = ? ");
         }
-        stringBuilder.append("ORDER BY p.product_id");
-        try {
-            Connection connection = DBConnection.getConnection();
-            try {
-                PreparedStatement preparedStatement = connection.prepareStatement(stringBuilder.toString());
-                try {
-                    int n = 1;
-                    if (!string2.isEmpty()) {
-                        preparedStatement.setString(n++, "%" + string2 + "%");
-                    }
-                    if (string != null && !string.equals("All Categories")) {
-                        preparedStatement.setString(n++, string);
-                    }
-                    ResultSet resultSet = preparedStatement.executeQuery();
-                    try {
-                        while (resultSet.next()) {
-                            Vector<Object> vector = new Vector<Object>();
-                            vector.add(resultSet.getInt("product_id"));
-                            vector.add(resultSet.getString("name"));
-                            vector.add(resultSet.getString("description"));
-                            vector.add(resultSet.getInt("stock_qty"));
-                            vector.add(String.format("%.2f", resultSet.getDouble("price")));
-                            vector.add(resultSet.getString("category_name"));
-                            this.catalogModel.addRow(vector);
-                        }
-                    }
-                    finally {
-                        if (resultSet != null) {
-                            resultSet.close();
-                        }
-                    }
-                }
-                finally {
-                    if (preparedStatement != null) {
-                        preparedStatement.close();
-                    }
+        sb.append("ORDER BY p.product_id");
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sb.toString())) {
+            int idx = 1;
+            if (!search.isEmpty()) {
+                ps.setString(idx++, "%" + search + "%");
+            }
+            if (cat != null && !cat.equals("All Categories")) {
+                ps.setString(idx++, cat);
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Vector<Object> row = new Vector<>();
+                    row.add(rs.getInt("product_id"));
+                    row.add(rs.getString("name"));
+                    row.add(rs.getString("description"));
+                    row.add(rs.getInt("stock_qty"));
+                    row.add(String.format("%.2f", rs.getDouble("price")));
+                    row.add(rs.getString("category_name"));
+                    this.catalogModel.addRow(row);
                 }
             }
-            finally {
-                if (connection != null) {
-                    connection.close();
-                }
-            }
-        }
-        catch (Exception exception) {
-            // empty catch block
-        }
+        } catch (Exception ignored) {}
     }
 
     private void loadMyOrders() {
         this.myOrdersModel.setRowCount(0);
-        String string = "SELECT o.order_id, o.order_date, o.total_amount, o.status AS order_status, COALESCE(s.carrier, 'Standard') AS carrier, COALESCE(s.tracking_no, 'Pending') AS tracking_no, COALESCE(s.status, 'Pending') AS shipping_status FROM orders o LEFT JOIN shipping s ON o.shipment_id = s.shipment_id WHERE o.customer_id = ? ORDER BY o.order_id DESC";
-        try {
-            Connection connection = DBConnection.getConnection();
-            try {
-                PreparedStatement preparedStatement = connection.prepareStatement(string);
-                try {
-                    preparedStatement.setInt(1, this.activeCustomerId);
-                    ResultSet resultSet = preparedStatement.executeQuery();
-                    try {
-                        while (resultSet.next()) {
-                            Vector<Object> vector = new Vector<Object>();
-                            vector.add(resultSet.getInt("order_id"));
-                            vector.add(resultSet.getString("order_date"));
-                            vector.add(String.format("%.2f", resultSet.getDouble("total_amount")));
-                            vector.add(resultSet.getString("order_status"));
-                            vector.add(resultSet.getString("carrier"));
-                            vector.add(resultSet.getString("tracking_no"));
-                            vector.add(resultSet.getString("shipping_status"));
-                            this.myOrdersModel.addRow(vector);
-                        }
-                    }
-                    finally {
-                        if (resultSet != null) {
-                            resultSet.close();
-                        }
-                    }
-                }
-                finally {
-                    if (preparedStatement != null) {
-                        preparedStatement.close();
-                    }
+        String sql = "SELECT o.order_id, o.order_date, o.total_amount, o.status AS order_status, "
+                   + "COALESCE(s.carrier, 'Standard') AS carrier, "
+                   + "COALESCE(s.tracking_no, 'Pending') AS tracking_no, "
+                   + "COALESCE(s.status, 'Pending') AS shipping_status "
+                   + "FROM orders o "
+                   + "LEFT JOIN shipping s ON o.shipment_id = s.shipment_id "
+                   + "WHERE o.customer_id = ? "
+                   + "ORDER BY o.order_id DESC";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, this.activeCustomerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Vector<Object> row = new Vector<>();
+                    row.add(rs.getInt("order_id"));
+                    row.add(rs.getString("order_date"));
+                    row.add(String.format("%.2f", rs.getDouble("total_amount")));
+                    row.add(rs.getString("order_status"));
+                    row.add(rs.getString("carrier"));
+                    row.add(rs.getString("tracking_no"));
+                    row.add(rs.getString("shipping_status"));
+                    this.myOrdersModel.addRow(row);
                 }
             }
-            finally {
-                if (connection != null) {
-                    connection.close();
-                }
-            }
-        }
-        catch (Exception exception) {
-            // empty catch block
-        }
+        } catch (Exception ignored) {}
     }
 
     private void loadReviews() {
         this.reviewsModel.setRowCount(0);
-        String string = "SELECT r.review_id, p.name AS product_name, r.rating, r.comment, r.review_date FROM review r LEFT JOIN product p ON r.product_id = p.product_id WHERE r.customer_id = ? ORDER BY r.review_id DESC";
-        try {
-            Connection connection = DBConnection.getConnection();
-            try {
-                PreparedStatement preparedStatement = connection.prepareStatement(string);
-                try {
-                    preparedStatement.setInt(1, this.activeCustomerId);
-                    ResultSet resultSet = preparedStatement.executeQuery();
-                    try {
-                        while (resultSet.next()) {
-                            Vector<Object> vector = new Vector<Object>();
-                            vector.add(resultSet.getInt("review_id"));
-                            vector.add(resultSet.getString("product_name"));
-                            vector.add(resultSet.getInt("rating") + " \u2605");
-                            vector.add(resultSet.getString("comment"));
-                            vector.add(resultSet.getString("review_date"));
-                            this.reviewsModel.addRow(vector);
-                        }
-                    }
-                    finally {
-                        if (resultSet != null) {
-                            resultSet.close();
-                        }
-                    }
-                }
-                finally {
-                    if (preparedStatement != null) {
-                        preparedStatement.close();
-                    }
+        String sql = "SELECT r.review_id, p.name AS product_name, r.rating, r.comment, r.review_date "
+                   + "FROM review r "
+                   + "LEFT JOIN product p ON r.product_id = p.product_id "
+                   + "WHERE r.customer_id = ? "
+                   + "ORDER BY r.review_id DESC";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, this.activeCustomerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Vector<Object> row = new Vector<>();
+                    row.add(rs.getInt("review_id"));
+                    row.add(rs.getString("product_name"));
+                    row.add(rs.getInt("rating") + " \u2605");
+                    row.add(rs.getString("comment"));
+                    row.add(rs.getString("review_date"));
+                    this.reviewsModel.addRow(row);
                 }
             }
-            finally {
-                if (connection != null) {
-                    connection.close();
-                }
-            }
-        }
-        catch (Exception exception) {
-            // empty catch block
-        }
+        } catch (Exception ignored) {}
     }
 
     private void showAddReviewDialog() {
-        JTextField jTextField = new JTextField("1");
-        JComboBox<Integer> jComboBox = new JComboBox<Integer>(new Integer[]{1, 2, 3, 4, 5});
-        jComboBox.setSelectedItem(5);
-        JTextField jTextField2 = new JTextField();
-        JPanel jPanel = new JPanel(new GridLayout(3, 2, 8, 8));
-        jPanel.add(new JLabel("Product ID:"));
-        jPanel.add(jTextField);
-        jPanel.add(new JLabel("Rating (1-5):"));
-        jPanel.add(jComboBox);
-        jPanel.add(new JLabel("Comment:"));
-        jPanel.add(jTextField2);
-        int n = JOptionPane.showConfirmDialog(this, jPanel, "Submit Review for Customer #" + this.activeCustomerId, 2);
-        if (n == 0) {
-            String string = "INSERT INTO review (customer_id, product_id, rating, comment) VALUES (?, ?, ?, ?)";
-            try {
-                Connection connection = DBConnection.getConnection();
-                try {
-                    PreparedStatement preparedStatement = connection.prepareStatement(string);
-                    try {
-                        preparedStatement.setInt(1, this.activeCustomerId);
-                        preparedStatement.setInt(2, Integer.parseInt(jTextField.getText().trim()));
-                        preparedStatement.setInt(3, (Integer)jComboBox.getSelectedItem());
-                        preparedStatement.setString(4, jTextField2.getText().trim());
-                        preparedStatement.executeUpdate();
-                        JOptionPane.showMessageDialog(this, "Review submitted successfully!");
-                        this.loadReviews();
-                    }
-                    finally {
-                        if (preparedStatement != null) {
-                            preparedStatement.close();
-                        }
-                    }
-                }
-                finally {
-                    if (connection != null) {
-                        connection.close();
-                    }
-                }
-            }
-            catch (Exception exception) {
-                JOptionPane.showMessageDialog(this, "Failed to submit review:\n" + exception.getMessage(), "Error", 0);
+        JTextField prodIdField = new JTextField("1");
+        JComboBox<Integer> ratingCombo = new JComboBox<>(new Integer[]{1, 2, 3, 4, 5});
+        ratingCombo.setSelectedItem(5);
+        JTextField commentField = new JTextField();
+
+        JPanel panel = new JPanel(new GridLayout(3, 2, 8, 8));
+        panel.add(new JLabel("Product ID:"));
+        panel.add(prodIdField);
+        panel.add(new JLabel("Rating (1-5):"));
+        panel.add(ratingCombo);
+        panel.add(new JLabel("Comment:"));
+        panel.add(commentField);
+
+        int choice = JOptionPane.showConfirmDialog(this, panel, "Submit Review for Customer #" + this.activeCustomerId, JOptionPane.OK_CANCEL_OPTION);
+        if (choice == JOptionPane.OK_OPTION) {
+            String sql = "INSERT INTO review (customer_id, product_id, rating, comment) VALUES (?, ?, ?, ?)";
+            try (Connection conn = DBConnection.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, this.activeCustomerId);
+                ps.setInt(2, Integer.parseInt(prodIdField.getText().trim()));
+                ps.setInt(3, (Integer)ratingCombo.getSelectedItem());
+                ps.setString(4, commentField.getText().trim());
+                ps.executeUpdate();
+                Window win = SwingUtilities.getWindowAncestor(this);
+                ToastNotification.show(win, "Review Submitted", "Thank you for reviewing!", ToastNotification.Type.SUCCESS);
+                this.loadReviews();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Failed to submit review:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }

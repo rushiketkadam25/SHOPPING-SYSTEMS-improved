@@ -61,14 +61,25 @@ extends JPanel {
         JPanel jPanel2 = new JPanel(new FlowLayout(2, 10, 8));
         jPanel2.setOpaque(false);
         JButton jButton = UIUtils.createButton("\u2605 New Order (Atomic Transaction)", UIUtils.SUCCESS, Color.WHITE);
+        JButton jButtonPdf = UIUtils.createButton("\ud83d\udcc4 Export PDF Invoice", UIUtils.PRIMARY, Color.WHITE);
         JButton jButton2 = UIUtils.createButton("\u270f\ufe0f Update Status", UIUtils.PRIMARY_DARK, Color.WHITE);
         JButton jButton3 = UIUtils.createButton("\ud83d\uddd1\ufe0f Delete Order", UIUtils.DANGER, Color.WHITE);
         JButton jButton4 = new JButton("\ud83d\udd04 Refresh");
         jButton.addActionListener(actionEvent -> this.showPlaceOrderDialog());
+        jButtonPdf.addActionListener(actionEvent -> {
+            int row = this.ordersTable.getSelectedRow();
+            if (row < 0) {
+                JOptionPane.showMessageDialog(this, "Please select an order from the ledger to generate its PDF invoice.", "Select Order", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            int orderId = (Integer)this.ordersModel.getValueAt(row, 0);
+            InvoicePdfGenerator.exportOrderToPdf(orderId, this);
+        });
         jButton2.addActionListener(actionEvent -> this.onUpdateOrderStatus());
         jButton3.addActionListener(actionEvent -> this.onDeleteOrder());
         jButton4.addActionListener(actionEvent -> this.loadOrders());
         jPanel2.add(jButton);
+        jPanel2.add(jButtonPdf);
         jPanel2.add(jButton2);
         jPanel2.add(jButton3);
         jPanel2.add(jButton4);

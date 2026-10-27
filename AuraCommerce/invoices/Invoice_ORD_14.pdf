@@ -1,0 +1,111 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [ 3 0 R ] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [ 0 0 595 842 ]
+/Resources << /Font << /F1 4 0 R /F2 5 0 R >> >>
+/Contents 6 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+6 0 obj
+<< /Length 2749 >>
+stream
+0.145 0.388 0.922 rg
+40 765 515 50 re f
+1 1 1 rg
+BT /F2 20 Tf 55 785 Td (AURACOMMERCE ENTERPRISE) Tj ET
+BT /F1 10 Tf 55 772 Td (OFFICIAL TAX INVOICE & RETAIL RECEIPT) Tj ET
+BT /F2 14 Tf 420 782 Td (PAID INVOICE) Tj ET
+0.058 0.090 0.164 rg
+BT /F2 11 Tf 40 735 Td (Invoice Number:) Tj ET
+BT /F1 11 Tf 135 735 Td (INV-ORD-14) Tj ET
+BT /F2 11 Tf 40 718 Td (Date & Time:) Tj ET
+BT /F1 11 Tf 135 718 Td (2026-10-28 00:28:58) Tj ET
+BT /F2 11 Tf 350 735 Td (Payment Method:) Tj ET
+BT /F1 11 Tf 450 735 Td (Cash on Delivery \(COD\)) Tj ET
+BT /F2 11 Tf 350 718 Td (Payment Status:) Tj ET
+0.062 0.725 0.505 rg
+BT /F2 11 Tf 450 718 Td (Completed) Tj ET
+0.96 0.97 0.98 rg
+40 645 515 55 re f
+0.89 0.91 0.93 RG 1 w
+40 645 515 55 re s
+0.058 0.090 0.164 rg
+BT /F2 10 Tf 52 682 Td (CUSTOMER / BILL TO:) Tj ET
+BT /F1 10 Tf 52 667 Td (Aarav Sharma (ID: #7)) Tj ET
+BT /F1 9 Tf 52 654 Td (Authorized E-Commerce Buyer Account) Tj ET
+BT /F2 10 Tf 330 682 Td (LOGISTICS & DISPATCH:) Tj ET
+BT /F1 10 Tf 330 667 Td (Carrier: BlueDart Express) Tj ET
+BT /F1 9 Tf 330 654 Td (Tracking No: TRK538734) Tj ET
+0.145 0.388 0.922 rg
+40 615 515 22 re f
+1 1 1 rg
+BT /F2 9 Tf 48 622 Td (#) Tj ET
+BT /F2 9 Tf 75 622 Td (PRODUCT DESCRIPTION) Tj ET
+BT /F2 9 Tf 330 622 Td (UNIT PRICE) Tj ET
+BT /F2 9 Tf 415 622 Td (QTY) Tj ET
+BT /F2 9 Tf 475 622 Td (TOTAL (INR)) Tj ET
+0.89 0.91 0.93 RG 0.5 w
+40 591 515 0 re s
+0.058 0.090 0.164 rg
+BT /F1 9 Tf 48 595 Td (1) Tj ET
+BT /F2 9 Tf 75 595 Td (T-Shirt) Tj ET
+BT /F1 9 Tf 330 595 Td (Rs. 799.00) Tj ET
+BT /F1 9 Tf 420 595 Td (8) Tj ET
+BT /F2 9 Tf 475 595 Td (Rs. 6392.00) Tj ET
+0.145 0.388 0.922 RG 1 w
+40 587 515 0 re s
+0.96 0.97 0.99 rg
+310 495 245 76 re f
+0.89 0.91 0.93 RG 1 w
+310 495 245 76 re s
+0.058 0.090 0.164 rg
+BT /F1 9 Tf 325 553 Td (Items Subtotal:) Tj ET
+BT /F1 9 Tf 475 553 Td (Rs. 6392.00) Tj ET
+0.062 0.725 0.505 rg
+BT /F2 9 Tf 325 537 Td (Coupon Discount:) Tj ET
+BT /F2 9 Tf 475 537 Td (- Rs. 525.00) Tj ET
+0.058 0.090 0.164 rg
+BT /F1 9 Tf 325 521 Td (Applicable GST/Tax (5%):) Tj ET
+BT /F1 9 Tf 475 521 Td (Rs. 319.60) Tj ET
+0.145 0.388 0.922 rg
+310 495 245 20 re f
+1 1 1 rg
+BT /F2 10 Tf 325 501 Td (GRAND TOTAL (INR):) Tj ET
+BT /F2 11 Tf 465 501 Td (Rs. 6186.60) Tj ET
+0.39 0.45 0.55 rg
+BT /F2 9 Tf 40 545 Td (Verification & Guarantee:) Tj ET
+BT /F1 8 Tf 40 531 Td (100% Authentic Products \225 Safe Transit Assurance) Tj ET
+BT /F1 8 Tf 40 519 Td (Standard 7-Day Return Policy on all eligible items) Tj ET
+0.89 0.91 0.93 RG 1 w
+40 70 515 0 re s
+0.39 0.45 0.55 rg
+BT /F2 8 Tf 40 55 Td (AuraCommerce Cloud POS & ERP \225 Enterprise Shopping Systems) Tj ET
+BT /F1 8 Tf 40 43 Td (This is an electronically generated legal invoice. For questions, reach out to support@auracommerce.com) Tj ET
+BT /F1 8 Tf 460 55 Td (Page 1 of 1) Tj ET
+
+endstream
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000117 00000 n 
+0000000255 00000 n 
+0000000325 00000 n 
+0000000400 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+3201
+%%EOF

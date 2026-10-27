@@ -1,9 +1,8 @@
-/*
- * Decompiled with CFR 0.152.
- */
 package com.shopping;
 
-import com.shopping.ModernTableRenderer;
+import com.formdev.flatlaf.FlatDarkLaf;
+import com.formdev.flatlaf.FlatLaf;
+import com.formdev.flatlaf.FlatLightLaf;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -11,29 +10,69 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.awt.Window;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTable;
+import javax.swing.SwingUtilities;
 
 public class UIUtils {
     public static final Color SIDEBAR_BG = new Color(11, 15, 25);
     public static final Color SIDEBAR_CARD = new Color(20, 27, 45);
     public static final Color SIDEBAR_HOVER = new Color(30, 41, 69);
     public static final Color PRIMARY = new Color(59, 130, 246);
-    public static final Color PRIMARY_DARK;
-    public static final Color PRIMARY_HOVER;
-    public static final Color SUCCESS;
-    public static final Color DANGER;
-    public static final Color WARNING;
-    public static final Color PURPLE;
-    public static final Color BG_CANVAS;
-    public static final Color BG_LIGHT;
-    public static final Color CARD_BG;
-    public static final Color CARD_BORDER;
-    public static final Color TEXT_DARK;
-    public static final Color TEXT_MUTED;
+    public static final Color PRIMARY_DARK = new Color(37, 99, 235);
+    public static final Color PRIMARY_HOVER = PRIMARY_DARK;
+    public static final Color SUCCESS = new Color(16, 185, 129);
+    public static final Color DANGER = new Color(244, 63, 94);
+    public static final Color WARNING = new Color(245, 158, 11);
+    public static final Color PURPLE = new Color(139, 92, 246);
+
+    // Dynamic Theme Tokens
+    public static Color BG_CANVAS = new Color(245, 247, 251);
+    public static Color BG_LIGHT = BG_CANVAS;
+    public static Color CARD_BG = Color.WHITE;
+    public static Color CARD_BORDER = new Color(229, 231, 235);
+    public static Color TEXT_DARK = new Color(15, 23, 42);
+    public static Color TEXT_MUTED = new Color(100, 116, 139);
+
+    private static boolean darkMode = false;
+
+    public static boolean isDarkMode() {
+        return darkMode;
+    }
+
+    public static void toggleTheme(Window window) {
+        setDarkMode(!darkMode, window);
+    }
+
+    public static void setDarkMode(boolean dark, Window window) {
+        darkMode = dark;
+        if (darkMode) {
+            BG_CANVAS = new Color(15, 23, 42);
+            BG_LIGHT = BG_CANVAS;
+            CARD_BG = new Color(30, 41, 59);
+            CARD_BORDER = new Color(51, 65, 85);
+            TEXT_DARK = new Color(241, 245, 249);
+            TEXT_MUTED = new Color(148, 163, 184);
+            FlatDarkLaf.setup();
+        } else {
+            BG_CANVAS = new Color(245, 247, 251);
+            BG_LIGHT = BG_CANVAS;
+            CARD_BG = Color.WHITE;
+            CARD_BORDER = new Color(229, 231, 235);
+            TEXT_DARK = new Color(15, 23, 42);
+            TEXT_MUTED = new Color(100, 116, 139);
+            FlatLightLaf.setup();
+        }
+        FlatLaf.updateUI();
+        if (window != null) {
+            SwingUtilities.updateComponentTreeUI(window);
+            window.repaint();
+        }
+    }
 
     public static JButton createButton(String string, Color color, Color color2) {
         JButton jButton = new JButton(string);
@@ -64,7 +103,10 @@ public class UIUtils {
     public static JPanel createCard(String string) {
         JPanel jPanel = new JPanel(new BorderLayout());
         jPanel.setBackground(CARD_BG);
-        jPanel.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(CARD_BORDER, 1, true), BorderFactory.createEmptyBorder(16, 20, 16, 20)));
+        jPanel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(CARD_BORDER, 1, true), 
+            BorderFactory.createEmptyBorder(16, 20, 16, 20)
+        ));
         if (string != null && !string.isEmpty()) {
             JLabel jLabel = new JLabel(string);
             jLabel.setFont(new Font("Segoe UI", 1, 15));
@@ -106,25 +148,7 @@ public class UIUtils {
         jTable.setFont(new Font("Segoe UI", 0, 13));
         jTable.getTableHeader().setFont(new Font("Segoe UI", 1, 12));
         jTable.getTableHeader().setPreferredSize(new Dimension(jTable.getTableHeader().getPreferredSize().width, 38));
-        jTable.getTableHeader().setBackground(new Color(241, 245, 249));
-        jTable.getTableHeader().setForeground(new Color(51, 65, 85));
-        jTable.setSelectionBackground(new Color(224, 231, 255));
-        jTable.setSelectionForeground(TEXT_DARK);
         jTable.setShowVerticalLines(false);
-        jTable.setGridColor(new Color(241, 245, 249));
         jTable.setDefaultRenderer(Object.class, new ModernTableRenderer());
-    }
-
-    static {
-        PRIMARY_HOVER = PRIMARY_DARK = new Color(37, 99, 235);
-        SUCCESS = new Color(16, 185, 129);
-        DANGER = new Color(244, 63, 94);
-        WARNING = new Color(245, 158, 11);
-        PURPLE = new Color(139, 92, 246);
-        BG_LIGHT = BG_CANVAS = new Color(245, 247, 251);
-        CARD_BG = Color.WHITE;
-        CARD_BORDER = new Color(229, 231, 235);
-        TEXT_DARK = new Color(15, 23, 42);
-        TEXT_MUTED = new Color(100, 116, 139);
     }
 }
